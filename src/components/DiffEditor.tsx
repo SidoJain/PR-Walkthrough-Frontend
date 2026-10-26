@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import Editor from '@monaco-editor/react';
+import Editor, { Monaco } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 
 interface DiffEditorProps {
@@ -9,38 +9,40 @@ interface DiffEditorProps {
 
 export default function DiffEditor({ code, activeLine }: DiffEditorProps) {
     const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+    const monacoRef = useRef<Monaco | null>(null);
     const decorationsRef = useRef<string[]>([]);
     const [isEditorReady, setIsEditorReady] = useState(false);
 
-    const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor) => {
+    const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor, monaco: Monaco) => {
         editorRef.current = editor;
+        monacoRef.current = monaco;
         setIsEditorReady(true);
     };
 
     useEffect(() => {
         // Wait until the editor is fully ready before applying decorations
-        if (!isEditorReady || !editorRef.current || !window.monaco) return;
+        if (!isEditorReady || !editorRef.current || !monacoRef.current) return;
 
         const editor = editorRef.current;
+        const monaco = monacoRef.current;
         const lines = code.split('\n');
         const newDecorations: editor.IModelDeltaDecoration[] = [];
 
         lines.forEach((line, index) => {
             const lineNumber = index + 1;
-
             if (line.startsWith('File: ')) {
                 newDecorations.push({
-                    range: new window.monaco.Range(lineNumber, 1, lineNumber, 1),
+                    range: new monaco.Range(lineNumber, 1, lineNumber, 1),
                     options: { isWholeLine: true, className: 'diff-file-header' },
                 });
             } else if (line.startsWith('+')) {
                 newDecorations.push({
-                    range: new window.monaco.Range(lineNumber, 1, lineNumber, 1),
+                    range: new monaco.Range(lineNumber, 1, lineNumber, 1),
                     options: { isWholeLine: true, className: 'diff-addition' },
                 });
             } else if (line.startsWith('-')) {
                 newDecorations.push({
-                    range: new window.monaco.Range(lineNumber, 1, lineNumber, 1),
+                    range: new monaco.Range(lineNumber, 1, lineNumber, 1),
                     options: { isWholeLine: true, className: 'diff-deletion' },
                 });
             }
@@ -48,19 +50,18 @@ export default function DiffEditor({ code, activeLine }: DiffEditorProps) {
 
         if (activeLine !== null) {
             newDecorations.push({
-                range: new window.monaco.Range(activeLine, 1, activeLine, 1),
+                range: new monaco.Range(activeLine, 1, activeLine, 1),
                 options: {
                     isWholeLine: true,
                     className: 'diff-active-line',
                     zIndex: 10,
                 },
             });
-            // Ensure the first line is scrolled into view immediately
             editor.revealLineInCenter(activeLine);
         }
 
         decorationsRef.current = editor.deltaDecorations(decorationsRef.current, newDecorations);
-    }, [code, activeLine, isEditorReady]); // Added isEditorReady to dependency array
+    }, [code, activeLine, isEditorReady]);
 
     return (
         <div className="w-full h-full text-left relative monaco-no-select">
